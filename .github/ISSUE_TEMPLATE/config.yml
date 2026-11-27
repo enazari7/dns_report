@@ -1,0 +1,7 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security issue
+    url: https://github.com/enazari7/dns_report/security/advisories/new
+    about: >
+      Please report anything that reaches the write path without the password
+      privately, not as a public issue. See SECURITY.md.

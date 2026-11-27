@@ -1,0 +1,51 @@
+name: A parsed format changed
+description: dnsdist, sniproxy or tcpdump output differs on your build
+labels: ["bug", "format-drift"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every panel is a parser over another program's text output, and those
+        formats drift between versions. This is the most likely kind of bug, and
+        the easiest to fix — with three real lines it is usually a one-line
+        change plus a test.
+
+        See `docs/DATA-FORMATS.md` for the format this project expects.
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Which source
+      options:
+        - sniproxy access log
+        - dnsdist grepq
+        - dnsdist topQueries / showServers
+        - tcpdump (port watch)
+        - domains.txt
+        - systemctl / proc
+        - other
+    validations:
+      required: true
+
+  - type: input
+    id: producer_version
+    attributes:
+      label: Version of the program producing it
+      placeholder: "dnsdist 1.9.5 / sniproxy 0.6.0 / tcpdump 4.99.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: lines
+    attributes:
+      label: Three real lines of the actual output
+      description: Redact addresses and hostnames if you need to, but keep the shape exactly.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: selftest
+    attributes:
+      label: Output of the matching selftest
+      render: text

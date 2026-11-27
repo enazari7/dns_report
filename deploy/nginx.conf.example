@@ -1,0 +1,59 @@
+# Reverse-proxy example. Only needed if you want the dashboard reachable
+# without an SSH tunnel AND you have nginx somewhere to put in front.
+#
+# nginx does NOT have to run on the DNS server. Running it on a separate host
+# and proxying across is often better: the DNS box keeps a single loopback
+# listener and nothing new is exposed on it at all.
+#
+# In the app config:
+#   bind = 127.0.0.1          (or the address nginx can reach)
+#   behind_proxy = true
+#   forwarded_allow_ips = <address nginx connects from>
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name dash.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/dash.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dash.example.com/privkey.pem;
+
+    # Optional extra layer. The app has its own allow_ips too; either is fine,
+    # both is better.
+    # allow 203.0.113.45;
+    # deny all;
+
+    location / {
+        proxy_pass http://127.0.0.1:9443;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # The live feed is Server-Sent Events. Without this it arrives in
+        # clumps, minutes late, and looks broken.
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+    }
+}
+
+# --- serving under a sub-path instead of its own hostname -------------------
+# Set root_path = /dns in the app config to match.
+#
+# server {
+#     listen 443 ssl;
+#     server_name existing.example.com;
+#
+#     location /dns/ {
+#         proxy_pass http://127.0.0.1:9443/;   # trailing slash strips /dns
+#         proxy_http_version 1.1;
+#         proxy_set_header Host              $host;
+#         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_buffering off;
+#         proxy_read_timeout 1h;
+#     }
+# }

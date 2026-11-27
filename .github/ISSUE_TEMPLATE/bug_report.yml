@@ -1,0 +1,88 @@
+name: Bug report
+description: Something does not work as described
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before filing:** if a panel is empty or shows wrong data, please run
+        the matching selftest first and paste its output. Each one prints the
+        documented reference sample before touching live data, so it
+        immediately distinguishes "the format on my build differs" from "the
+        code is wrong" — and it names the single file to fix.
+
+        ```bash
+        cd /opt/smartdns-dashboard
+        venv/bin/python -m smartdns_dash doctor
+        venv/bin/python -m smartdns_dash selftest all --client-ip <a client>
+        ```
+
+        **Never paste** your `secret_key`, `password_hash`, the dnsdist console
+        key, or `smartdns.env`.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the … panel
+        2. …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: selftest
+    attributes:
+      label: doctor / selftest output
+      description: Redact addresses if you prefer; keep the structure.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`smartdns-dashboard --version`, or the commit"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python and OS
+      placeholder: "3.10.12 / Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant config
+      description: >
+        The `[server]`, `[paths]` and `[services]` sections are usually what
+        matters. Redact addresses. Do NOT include `[auth]`.
+      render: ini
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Service log
+      description: "`journalctl -u smartdns-dashboard -n 50`"
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I have not pasted any secret or key
+          required: true
+        - label: I ran `doctor` and it is not reporting a fatal problem that explains this

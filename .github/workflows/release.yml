@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Tests must pass before anything is published
+        run: |
+          ruff check src tests
+          pytest -q
+
+      - name: Build the single-file installer
+        run: python tools/build_installer.py
+
+      - name: Verify the payload
+        run: python install.py --check-only
+
+      - name: Checksum
+        # Published so someone copying install.py to a server can confirm it
+        # arrived intact, independently of the installer's own self-check.
+        run: |
+          sha256sum install.py | tee install.py.sha256
+
+      - name: Build the wheel and sdist
+        run: |
+          pip install build
+          python -m build
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            install.py
+            install.py.sha256
+            dist/*
+          body: |
+            See [CHANGELOG.md](CHANGELOG.md).
+
+            **Installing on a server**
+
+            Copy `install.py` across — one text file, built to survive an SFTP
+            client in text mode — then:
+
+            ```bash
+            python3 install.py --check-only   # verify it arrived intact
+            sudo python3 install.py
+            ```
+
+            `install.py` is a build artifact, not source: the repository
+            zipped and base64-encoded. `--extract-only` unpacks the readable
+            tree.
+          generate_release_notes: true

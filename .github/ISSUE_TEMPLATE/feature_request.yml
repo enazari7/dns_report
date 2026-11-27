@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest something this should do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worth reading `docs/ROADMAP.md` first — it lists both the candidate next
+        work and the things this project deliberately will not do. The main one:
+        **it will never add a domain to the allow-list automatically.** Three
+        real outages came from speculative additions, so the tool presents
+        candidates and evidence and leaves the decision to a human.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve
+      description: The situation you were in, not the feature you imagined.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead

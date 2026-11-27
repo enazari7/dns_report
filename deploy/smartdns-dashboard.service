@@ -1,0 +1,43 @@
+[Unit]
+Description=Smart DNS Observability Dashboard
+Documentation=file:/opt/smartdns-dashboard/README.md
+After=network-online.target dnsdist.service sniproxy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Runs as root: it reads smartdns.env, writes domains.txt, and restarts
+# sniproxy/dnsdist. Keep the config file mode 600 and keep the listen address
+# restricted (see README section 4).
+User=root
+Group=root
+WorkingDirectory=/opt/smartdns-dashboard
+Environment=PYTHONUNBUFFERED=1
+Environment=SMARTDNS_DASH_CONFIG=/etc/smartdns-dashboard/config.ini
+# Diagnostic history (SQLite). systemd creates it 0700 on start.
+StateDirectory=smartdns-dashboard
+StateDirectoryMode=0700
+ExecStart=/opt/smartdns-dashboard/venv/bin/python -m smartdns_dash run
+Restart=on-failure
+RestartSec=5s
+
+# Modest hardening. NOT a sandbox - the service legitimately needs to write
+# /etc/smartdns and call systemctl.
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# Keep the footprint small on a VM that also carries live traffic.
+MemoryMax=512M
+CPUQuota=60%
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=smartdns-dashboard
+
+[Install]
+WantedBy=multi-user.target

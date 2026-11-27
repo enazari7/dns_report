@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="{{ lang }}" {% if lang == 'fa' %}dir="rtl"{% endif %}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="robots" content="noindex, nofollow">
+<title>{% if lang == 'fa' %}بررسی اتصال{% else %}Connection check{% endif %}</title>
+<link rel="stylesheet" href="{{ base }}/static/style.css">
+</head>
+<body class="login-body" data-lang="{{ lang }}">
+<main class="login-card triage-card">
+
+  <div class="login-head">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>{% if lang == 'fa' %}بررسی اتصال{% else %}Connection check{% endif %}</h1>
+      <p class="sub mono">{{ d.client_ip }}</p>
+    </div>
+  </div>
+
+  {# The verdict. Every wording here is a likelihood with its evidence, never
+     a claim the server cannot actually support. #}
+  <div class="alert {% if d.proxied_count and not d.failed_count %}ok
+                    {%- elif d.dns_seen and not d.proxied_count %}warn
+                    {%- elif d.failed_count %}error
+                    {%- else %}info{% endif %}">
+    <strong>{{ d.verdict[lang] or d.verdict.en }}</strong>
+  </div>
+
+  {% if d.findings %}
+  <ul class="triage-findings">
+    {% for f in d.findings %}<li>{{ f[lang] or f.en }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <dl class="kv">
+    <dt>{% if lang == 'fa' %}آدرس تو{% else %}Your address{% endif %}</dt>
+    <dd>{{ d.client_ip }}</dd>
+    <dt>{% if lang == 'fa' %}اتصال‌های اخیر{% else %}Recent connections{% endif %}</dt>
+    <dd>{{ d.proxied_count }}{% if d.failed_count %} ({{ d.failed_count }}
+        {% if lang == 'fa' %}ناموفق{% else %}failed{% endif %}){% endif %}</dd>
+    <dt>{% if lang == 'fa' %}پرسش DNS دیده شد{% else %}DNS seen{% endif %}</dt>
+    <dd>{{ 'yes' if d.dns_seen else 'no' }}</dd>
+    <dt>{% if lang == 'fa' %}سرور{% else %}Server{% endif %}</dt>
+    <dd>{{ d.server }}</dd>
+  </dl>
+
+  {% if d.recent %}
+  <h2>{% if lang == 'fa' %}آخرین اتصال‌ها{% else %}Last connections{% endif %}</h2>
+  <div class="scroll short">
+    <table class="t">
+      <tbody>
+        {% for r in d.recent %}
+        <tr class="{{ '' if r.ok else 'problem' }}">
+          <td>{{ r.time }}</td>
+          <td class="name">{{ r.sni or '—' }}</td>
+          <td>{{ '✓' if r.ok else '✗' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="alert info">{{ d.limitation[lang] or d.limitation.en }}</div>
+
+  <p class="foot">
+    {% if lang == 'fa' %}
+    این صفحه فقط چیزی را نشان می‌دهد که سرور از آدرس خودِ تو دیده است. برای
+    گرفتن اطلاعات تازه، بازی را امتحان کن و بعد صفحه را تازه کن.
+    {% else %}
+    This page shows only what the server has observed from your own address.
+    For fresh information, try the game and then reload.
+    {% endif %}
+  </p>
+
+</main>
+</body>
+</html>

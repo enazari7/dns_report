@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>{{ server_name }}</title>
+<link rel="stylesheet" href="{{ base }}/static/style.css">
+<link rel="manifest" href="{{ base }}/static/manifest.webmanifest">
+<link rel="icon" href="{{ base }}/static/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ base }}/static/icon.svg">
+<meta name="theme-color" content="#0b0e13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SmartDNS">
+</head>
+<body data-csrf="{{ csrf }}"
+      data-spoof-ip="{{ spoof_ip }}"
+      data-spoof-source="{{ spoof_source }}"
+      data-local-ip="{{ local_ip }}"
+      data-server-name="{{ server_name }}"
+      data-peer-name="{{ peer_name }}"
+      data-peer-enabled="{{ '1' if peer_enabled else '0' }}"
+      data-portwatch="{{ '1' if portwatch_enabled else '0' }}"
+      data-lang="{{ lang }}"
+      data-base="{{ base }}"
+      data-role="{{ role }}"
+      data-probe="{{ '1' if probe_enabled else '0' }}"
+      data-history="{{ '1' if history_enabled else '0' }}"
+      data-alerts="{{ '1' if alerts_enabled else '0' }}"
+      data-triage="{{ '1' if triage_enabled else '0' }}"
+      data-metrics="{{ '1' if metrics_enabled else '0' }}">
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div class="brand-text">
+      <strong id="brandName">{{ server_name }}</strong>
+      <span class="brand-sub">
+        <span id="brandSpoof" class="mono">{{ spoof_ip or '—' }}</span>
+        <span class="sep">·</span>
+        <span data-i18n="brand.spoofTarget">spoof target</span>
+      </span>
+    </div>
+  </div>
+
+  <div id="statusChips" class="chips"></div>
+
+  <div class="topright">
+    <button id="eventsBtn" class="badge-btn hidden" data-i18n-title="hdr.events"
+            title="open alerts"><span id="eventsCount">0</span></button>
+    <span id="roleChip" class="chip hidden"></span>
+    <span id="sseDot" class="dot" data-i18n-title="hdr.stream" title="event stream"></span>
+    <div class="seg" role="group" aria-label="Language">
+      <button class="seg-btn" data-lang="en">EN</button>
+      <button class="seg-btn" data-lang="fa">فا</button>
+    </div>
+    <button id="themeBtn" class="icon-btn" data-i18n-title="hdr.theme" title="Theme">◐</button>
+    <form method="post" action="{{ base }}/logout">
+      <button class="ghost" data-i18n="hdr.signout">Sign out</button>
+    </form>
+  </div>
+</header>
+
+<div id="staleBanner" class="banner hidden"></div>
+<div id="cfgBanner" class="banner note hidden"></div>
+
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="debug" data-i18n="tab.debug">Debug client</button>
+  <button class="tab" data-tab="feed" data-i18n="tab.feed">Live feed</button>
+  <button class="tab" data-tab="allow" data-i18n="tab.allow">Allow-list</button>
+  <button class="tab" data-tab="lookup" data-i18n="tab.lookup">Lookup</button>
+  <button class="tab" data-tab="peer" data-i18n="tab.peer">Server diff</button>
+  <button class="tab" data-tab="backups" data-i18n="tab.backups">Backups</button>
+  <button class="tab" data-tab="ports" data-i18n="tab.ports">Port watch</button>
+  <button class="tab" data-tab="traffic" data-i18n="tab.traffic">Traffic</button>
+  <button class="tab" data-tab="events" data-i18n="tab.events">Events</button>
+  <button class="tab" data-tab="audit" data-i18n="tab.audit">Audit</button>
+  <button class="tab" data-tab="logs" data-i18n="tab.logs">Logs</button>
+</nav>
+
+<main>
+
+<!-- ================= DEBUG CLIENT ================= -->
+<section class="panel active" id="tab-debug">
+  <div class="card">
+    <div class="toolbar">
+      <div class="field">
+        <label data-i18n="dbg.clientIp">Client IP</label>
+        <input id="dbgClient" type="text" placeholder="84.241.45.220" size="18" dir="ltr">
+      </div>
+      <button id="dbgGo" class="primary" data-i18n="dbg.watch">Watch</button>
+      <button id="dbgStop" class="ghost" data-i18n="dbg.stop">Stop watching</button>
+      <div class="field">
+        <label data-i18n="dbg.recent">Recent clients</label>
+        <select id="dbgKnown"><option value=""></option></select>
+      </div>
+      <span id="dbgMeta" class="meta"></span>
+    </div>
+    <p class="hint" data-i18n-html="dbg.help"></p>
+  </div>
+
+  <div class="split">
+    <div class="card col">
+      <h2><span class="pill ok" data-i18n="dbg.proxiedTag">proxied</span>
+          <span data-i18n="dbg.proxiedTitle">sniproxy access log</span></h2>
+      <div class="scroll">
+        <table class="t">
+          <thead><tr>
+            <th data-i18n="col.time">time</th>
+            <th data-i18n="col.sni">SNI</th>
+            <th data-i18n="col.origin">origin</th>
+            <th data-i18n="col.fromOrigin" data-i18n-title="col.fromOriginT">from origin</th>
+            <th data-i18n="col.toOrigin" data-i18n-title="col.toOriginT">to origin</th>
+            <th data-i18n="col.sec">sec</th>
+          </tr></thead>
+          <tbody id="dbgProxied"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card col">
+      <h2><span class="pill warn" data-i18n="dbg.unproxiedTag">not proxied</span>
+          <span data-i18n="dbg.unproxiedTitle">dnsdist ring — went upstream</span></h2>
+      <div class="scroll">
+        <table class="t">
+          <thead><tr>
+            <th data-i18n="col.firstSeen">first seen</th>
+            <th data-i18n="col.name">name</th>
+            <th data-i18n="col.qty">qty</th>
+            <th data-i18n="col.types">types</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="dbgUnproxied"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="dbgPermitHint" class="alert info hidden"></div>
+</section>
+
+<!-- ================= LIVE FEED ================= -->
+<section class="panel" id="tab-feed">
+  <div class="card">
+    <div class="toolbar">
+      <div class="field">
+        <label data-i18n="feed.client">Client IP</label>
+        <input id="fClient" type="text" size="16" dir="ltr">
+      </div>
+      <div class="field">
+        <label data-i18n="feed.sni">SNI contains</label>
+        <input id="fSni" type="text" size="20" dir="ltr">
+      </div>
+      <label class="check"><input id="fProblems" type="checkbox">
+        <span data-i18n="feed.problems">problems only</span></label>
+      <label class="check"><input id="fPause" type="checkbox">
+        <span data-i18n="feed.pause">pause</span></label>
+      <button id="fClear" class="ghost" data-i18n="feed.clear">Clear</button>
+      <span id="fMeta" class="meta"></span>
+    </div>
+    <p class="hint" data-i18n-html="feed.help"></p>
+  </div>
+  <div class="card">
+    <div class="scroll tall">
+      <table class="t">
+        <thead><tr>
+          <th data-i18n="col.time">time</th>
+          <th data-i18n="col.log">log</th>
+          <th data-i18n="col.client">client</th>
+          <th data-i18n="col.sni">SNI</th>
+          <th data-i18n="col.origin">origin</th>
+          <th data-i18n="col.fromOrigin">from origin</th>
+          <th data-i18n="col.toOrigin">to origin</th>
+          <th data-i18n="col.sec">sec</th>
+        </tr></thead>
+        <tbody id="feedBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ALLOW-LIST ================= -->
+<section class="panel" id="tab-allow">
+  <div class="grid2">
+    <div class="card">
+      <h2 data-i18n="allow.addTitle">Add a domain</h2>
+      <div class="alert warn" data-i18n="allow.addWarn"></div>
+      <div class="stack">
+        <input id="addDomain" type="text" placeholder="sg.msdkfaas.com" dir="ltr">
+        <input id="addNote" type="text" data-i18n-ph="allow.notePh">
+        <div class="btn-row">
+          <button id="probeBtn" class="ghost" data-i18n="probe.run">Test first</button>
+          <button id="addPreview" class="primary" data-i18n="allow.preview">Preview change</button>
+        </div>
+      </div>
+      <div id="probeBox"></div>
+      <div id="planBox"></div>
+    </div>
+
+    <div class="card">
+      <h2><span data-i18n="allow.listTitle">Active suffixes</span>
+          <span id="allowCount" class="meta"></span></h2>
+      <div class="toolbar">
+        <input id="allowFilter" type="text" data-i18n-ph="allow.filterPh" size="22" dir="ltr">
+        <button id="allowReload" class="ghost" data-i18n="btn.reload">Reload</button>
+      </div>
+      <div id="allowIssues"></div>
+      <div class="scroll tall">
+        <table class="t">
+          <thead><tr>
+            <th>#</th>
+            <th data-i18n="col.suffix">suffix</th>
+            <th data-i18n="col.comment">comment</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="allowBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span data-i18n="groups.title">Groups</span>
+        <span id="groupCount" class="meta"></span></h2>
+    <p class="hint" data-i18n="groups.help"></p>
+    <div id="groupsBox"></div>
+    <details>
+      <summary data-i18n="groups.disabledTitle">Disabled entries</summary>
+      <div id="disabledBox"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="allow.history">Change history (this process)</h2>
+    <div class="scroll short"><table class="t">
+      <thead><tr>
+        <th data-i18n="col.when">when</th>
+        <th data-i18n="col.action">action</th>
+        <th data-i18n="col.target">target</th>
+        <th data-i18n="col.result">result</th>
+        <th data-i18n="col.backup">backup</th>
+      </tr></thead>
+      <tbody id="changeBody"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ================= LOOKUP ================= -->
+<section class="panel" id="tab-lookup">
+  <div class="card">
+    <div class="toolbar">
+      <input id="lkName" type="text" placeholder="west-tdm.codmwest.com" size="32" dir="ltr">
+      <div class="field">
+        <label data-i18n="lk.resolver">resolver</label>
+        <input id="lkResolver" type="text" size="16" dir="ltr">
+      </div>
+      <button id="lkGo" class="primary" data-i18n="lk.check">Check</button>
+    </div>
+    <p class="hint" data-i18n-html="lk.help"></p>
+  </div>
+  <div id="lkOut"></div>
+</section>
+
+<!-- ================= PEER DIFF ================= -->
+<section class="panel" id="tab-peer">
+  <div class="card">
+    <div class="toolbar">
+      <button id="peerProbe" class="ghost" data-i18n="peer.probe">Probe peer</button>
+      <button id="peerFetch" class="primary" data-i18n="peer.fetch">Fetch &amp; diff over SSH</button>
+      <span id="peerMeta" class="meta"></span>
+    </div>
+    <p class="hint" data-i18n-html="peer.help"></p>
+    <details open>
+      <summary data-i18n="peer.pasteMode">Paste mode (no SSH needed)</summary>
+      <p class="hint mono" id="peerPasteHint"></p>
+      <textarea id="peerPaste" rows="7" dir="ltr"></textarea>
+      <button id="peerPasteGo" class="primary" data-i18n="peer.pasteGo">Diff pasted list</button>
+    </details>
+  </div>
+  <div id="peerOut"></div>
+</section>
+
+<!-- ================= BACKUPS ================= -->
+<section class="panel" id="tab-backups">
+  <div class="card">
+    <div class="toolbar">
+      <button id="bkReload" class="ghost" data-i18n="btn.reload">Reload</button>
+      <span id="bkMeta" class="meta"></span>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="scroll tall">
+        <table class="t">
+          <thead><tr>
+            <th data-i18n="col.backupFile">backup</th>
+            <th data-i18n="col.when">when</th>
+            <th data-i18n="col.size">size</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="bkBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="bk.diffTitle">Diff vs current</h2>
+      <pre id="bkDiff" class="diff"></pre>
+      <div id="bkRestore"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PORT WATCH ================= -->
+<section class="panel" id="tab-ports">
+  <div class="card">
+    <div class="toolbar">
+      <div class="field">
+        <label data-i18n="pw.client">Client IP</label>
+        <input id="pwClient" type="text" size="16" dir="ltr">
+      </div>
+      <button id="pwStart" class="primary" data-i18n="pw.start">Start capture</button>
+      <button id="pwStop" class="ghost" data-i18n="pw.stop">Stop</button>
+      <span id="pwMeta" class="meta"></span>
+    </div>
+    <p class="hint" data-i18n-html="pw.help"></p>
+  </div>
+  <div id="pwOut"></div>
+</section>
+
+<!-- ================= LOGS ================= -->
+<section class="panel" id="tab-logs">
+  <div class="card">
+    <div class="toolbar">
+      <select id="logWhich">
+        <option value="sniproxy-error">sniproxy error.log</option>
+        <option value="update">smartdns update.log</option>
+        <option value="sniproxy">journal: sniproxy</option>
+        <option value="dnsdist">journal: dnsdist</option>
+        <option value="unbound">journal: unbound</option>
+      </select>
+      <div class="field">
+        <label data-i18n="logs.lines">lines</label>
+        <input id="logLines" type="number" value="200" min="10" max="2000" size="5" dir="ltr">
+      </div>
+      <button id="logGo" class="primary" data-i18n="logs.load">Load</button>
+    </div>
+    <pre id="logOut" class="diff">—</pre>
+  </div>
+</section>
+
+<!-- ================= TRAFFIC ================= -->
+<section class="panel" id="tab-traffic">
+  <div class="card">
+    <div class="toolbar">
+      <div class="field">
+        <label data-i18n="traffic.window">Window</label>
+        <select id="trHours">
+          <option value="1">1h</option>
+          <option value="6" selected>6h</option>
+          <option value="24">24h</option>
+          <option value="168">7d</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n="traffic.client">Client IP</label>
+        <input id="trClient" type="text" size="16" dir="ltr">
+      </div>
+      <button id="trReload" class="ghost" data-i18n="btn.reload">Reload</button>
+      <span id="trMeta" class="meta"></span>
+    </div>
+    <div class="alert info" data-i18n="traffic.notAccounting"></div>
+  </div>
+  <div class="card">
+    <h2 data-i18n="traffic.chartTitle">Bytes over time</h2>
+    <div id="trChart"></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h2 data-i18n="traffic.topClients">Top clients</h2>
+      <div class="scroll">
+        <table class="t">
+          <thead><tr>
+            <th data-i18n="col.client">client</th>
+            <th data-i18n="col.conns">conns</th>
+            <th data-i18n="col.problems">problems</th>
+            <th data-i18n="col.bytes">bytes</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="trClients"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="traffic.topSnis">Top destinations</h2>
+      <div class="scroll">
+        <table class="t">
+          <thead><tr>
+            <th data-i18n="col.sni">SNI</th>
+            <th data-i18n="col.conns">conns</th>
+            <th data-i18n="col.problems">problems</th>
+            <th data-i18n="col.bytes">bytes</th>
+          </tr></thead>
+          <tbody id="trSnis"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= EVENTS ================= -->
+<section class="panel" id="tab-events">
+  <div class="card">
+    <div class="toolbar">
+      <button id="evReload" class="ghost" data-i18n="btn.reload">Reload</button>
+      <span id="evMeta" class="meta"></span>
+    </div>
+    <p class="hint" data-i18n="events.help"></p>
+  </div>
+  <div class="card">
+    <h2 data-i18n="events.openTitle">Open now</h2>
+    <div id="evOpen"></div>
+  </div>
+  <div class="card">
+    <h2 data-i18n="events.historyTitle">History</h2>
+    <div class="scroll tall">
+      <table class="t">
+        <thead><tr>
+          <th data-i18n="col.severity">severity</th>
+          <th data-i18n="col.started">started</th>
+          <th data-i18n="col.duration">duration</th>
+          <th data-i18n="col.subject">subject</th>
+          <th data-i18n="col.detail">detail</th>
+        </tr></thead>
+        <tbody id="evHistory"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= AUDIT ================= -->
+<section class="panel" id="tab-audit">
+  <div class="card">
+    <div class="toolbar">
+      <div class="field">
+        <label data-i18n="audit.action">Action</label>
+        <input id="auAction" type="text" size="14" dir="ltr">
+      </div>
+      <div class="field">
+        <label data-i18n="audit.who">Who</label>
+        <input id="auWho" type="text" size="14" dir="ltr">
+      </div>
+      <button id="auReload" class="ghost" data-i18n="btn.reload">Reload</button>
+      <span id="auMeta" class="meta"></span>
+    </div>
+    <p class="hint" data-i18n="audit.help"></p>
+  </div>
+  <div class="card">
+    <div class="scroll tall">
+      <table class="t">
+        <thead><tr>
+          <th data-i18n="col.when">when</th>
+          <th data-i18n="col.who">who</th>
+          <th data-i18n="col.action">action</th>
+          <th data-i18n="col.target">target</th>
+          <th data-i18n="col.outcome">outcome</th>
+          <th data-i18n="col.detail">detail</th>
+        </tr></thead>
+        <tbody id="auBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h2 data-i18n="audit.registryTitle">Domains ever seen</h2>
+    <p class="hint" data-i18n="audit.registryHelp"></p>
+    <div class="toolbar">
+      <input id="regFilter" type="text" data-i18n-ph="allow.filterPh" size="20" dir="ltr">
+      <label class="check"><input id="regUpstream" type="checkbox">
+        <span data-i18n="audit.upstreamOnly">went upstream only</span></label>
+      <button id="regReload" class="ghost" data-i18n="btn.reload">Reload</button>
+    </div>
+    <div class="scroll">
+      <table class="t">
+        <thead><tr>
+          <th data-i18n="col.name">name</th>
+          <th data-i18n="col.firstSeen">first seen</th>
+          <th data-i18n="col.lastSeen">last seen</th>
+          <th data-i18n="col.times">times</th>
+          <th data-i18n="col.listed">listed</th>
+        </tr></thead>
+        <tbody id="regBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</main>
+<script src="{{ base }}/static/app.js"></script>
+</body>
+</html>
